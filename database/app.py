@@ -43,6 +43,22 @@ def listar_contactos():
             contactos_info.append(f"{contacto.numero_contacto}: {contacto_usuario.nombre}")
     return jsonify(contactos_info), 200
 
+@app.route('/billetera/pagar', methods=['GET'])
+def pagar():
+    minumero = request.args.get('minumero')
+    numero_destino = request.args.get('numerodestino')
+    valor = request.args.get('valor')
+    cuentausuario = Cuentausuario.query.filter_by(numero = minumero).first()
+    if not cuentausuario:
+        return jsonify({'error': 'Este numero no existe'})
+    contacto = Contacto.query.filter_by(numero_usuario=minumero, numero_contacto=numero_destino).first()
+    if not contacto:
+        return jsonify({'error': 'Numero destino no existe'})
+    operacion = Operacion(cuenta_origen=minumero, cuenta_destino=numero_destino, valor=valor)
+    db.session.add(operacion)
+    db.session.commit()
+    return jsonify({'operacion': 'Operacion realizada con exito', 'fecha': operacion.fecha}), 200
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Crea las tablas en la base de datos si no existen

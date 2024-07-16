@@ -13,6 +13,7 @@ class Cuentausuario(db.Model):
     __tablename__ = 'cuentausuario'
     numero = db.Column(db.String(9), primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
+    saldo = db.Column(db.Integer, nullable=False)
 
 class Contacto(db.Model):
     __tablename__ = 'contacto'
@@ -34,7 +35,7 @@ def listar_contactos():
     minumero = request.args.get('minumero')
     numero = Cuentausuario.query.filter_by(numero=minumero).first()
     if not numero:
-        return jsonify({'error': 'Numero no encontrado'})
+        return jsonify({'error': 'Numero no encontrado'}), 404
     contactos = Contacto.query.filter_by(numero_usuario=minumero).all()
     contactos_info = []
     for contacto in contactos:
@@ -47,17 +48,42 @@ def listar_contactos():
 def pagar():
     minumero = request.args.get('minumero')
     numero_destino = request.args.get('numerodestino')
-    valor = request.args.get('valor')
-    cuentausuario = Cuentausuario.query.filter_by(numero = minumero).first()
-    if not cuentausuario:
-        return jsonify({'error': 'Este numero no existe'})
-    contacto = Contacto.query.filter_by(numero_usuario=minumero, numero_contacto=numero_destino).first()
-    if not contacto:
-        return jsonify({'error': 'Numero destino no existe'})
+    valor = int(request.args.get('valor'))
+    cuenta_origen = Cuentausuario.query.filter_by(numero = minumero).first()
+    if not cuenta_origen:
+        return jsonify({'error': 'Este numero no existe'}), 404
+    cuenta_destino = Cuentausuario.query.filter_by(numero=numero_destino).first()
+    if not cuenta_destino:
+        return jsonify({'error': 'Numero destino no existe'}), 400
+    if cuenta_origen.saldo < valor:
+        return jsonify({'error': 'Saldo insuficiente'}), 400
+    # descuenta el saldo en la cuenta de origen
+    cuenta_origen.saldo -= valor
+    # aumenta el saldo en la cuenta de destino
+    cuenta_destino.saldo += valor
     operacion = Operacion(cuenta_origen=minumero, cuenta_destino=numero_destino, valor=valor)
     db.session.add(operacion)
     db.session.commit()
     return jsonify({'operacion': 'Operacion realizada con exito', 'fecha': operacion.fecha}), 200
+
+@app.route('/billetera/historial', methods=['GET'])
+def historial_operaciones():
+    minumero = request.args.get('minumero')
+    cuentausuario = Cuentausuario.query.filter_by(numero=minumero).first()
+    if not cuentausuario:
+        return jsonify({'error': 'Este numero no existe'}), 404
+    saldo_actual = cuentausuario.saldo
+    operaciones_realizadas = Operacion.query.filter_by(cuenta_origen=minumero).all()
+    operaciones_recibidas = Operacion.query.filter_by(cuenta_destino=minumero).all()
+    operaciones_info = []
+    for operacion in operaciones_realizadas:
+        cuenta_destino = Cuentausuario.query.filter_by(numero=operacion.cuenta_destino).first()
+        operaciones_info.append(f"Pago realizado de {operacion.valor} a {cuenta_destino.nombre}")
+    for operacion in operaciones_recibidas:
+        cuenta_origen = Cuentausuario.query.filter_by(numero=operacion.cuenta_origen).first()
+        operaciones_info.append(f"Pago recibido de {operacion.valor} de {cuenta_origen.nombre}")
+    return jsonify({'saldo': saldo_actual, 'operaciones': operaciones_info}), 200
+
 
 if __name__ == '__main__':
     with app.app_context():

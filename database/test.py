@@ -34,13 +34,15 @@ class TestModels(unittest.TestCase):
     # Caso de éxito: Transferencia exitosa entre cuentas
     def test_transferencia_exitosa(self):
         with self.app.app_context():
+            cuenta1 = Cuentausuario.query.filter_by(numero='21345').first()
+            cuenta2 = Cuentausuario.query.filter_by(numero='123').first()
             operacion = Operacion(cuenta_origen='21345', cuenta_destino='123', valor=100)
-            self.cuenta1.saldo -= 100
-            self.cuenta2.saldo += 100
+            cuenta1.saldo -= 100
+            cuenta2.saldo += 100
             db.session.add(operacion)
             db.session.commit()
-            self.assertEqual(self.cuenta1.saldo, 100)
-            self.assertEqual(self.cuenta2.saldo, 600)
+            self.assertEqual(cuenta1.saldo, 100)
+            self.assertEqual(cuenta2.saldo, 600)
 
     # Caso de éxito: Historial de operaciones
     def test_historial_operaciones(self):
@@ -68,8 +70,9 @@ class TestModels(unittest.TestCase):
         with self.app.app_context():
             with self.assertRaises(ValueError) as context:
                 operacion = Operacion(cuenta_origen='21345', cuenta_destino='123', valor=300)
-                self.cuenta1.saldo = 200
-                if self.cuenta1.saldo < 300:
+                cuenta1 = Cuentausuario.query.filter_by(numero='21345').first()
+                cuenta1.saldo = 200
+                if cuenta1.saldo < 300:
                     raise ValueError("Saldo insuficiente.")
             self.assertTrue('Saldo insuficiente.' in str(context.exception))
 

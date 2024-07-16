@@ -4,28 +4,31 @@ from datetime import datetime
 from flask_cors import CORS
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Anvarnv23@localhost/billetera_yape'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:utec1719@localhost/software'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 class Cuentausuario(db.Model):
     __tablename__ = 'cuentausuario'
+    __table_args__ = {'schema': 'efsw'}
     numero = db.Column(db.String(9), primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
 
 class Contacto(db.Model):
     __tablename__ = 'contacto'
+    __table_args__ = (db.UniqueConstraint('numero_usuario', 'numero_contacto', name='_cuenta_contacto_uc'), {'schema': 'efsw'})
     id = db.Column(db.Integer, primary_key=True)
-    numero_usuario = db.Column(db.String(9), db.ForeignKey('cuentausuario.numero'), nullable=False)
-    numero_contacto = db.Column(db.String(9), db.ForeignKey('cuentausuario.numero'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('numero_usuario', 'numero_contacto', name='_cuenta_contacto_uc'),)
+    numero_usuario = db.Column(db.String(9), db.ForeignKey('efsw.cuentausuario.numero'), nullable=False)
+    numero_contacto = db.Column(db.String(9), db.ForeignKey('efsw.cuentausuario.numero'), nullable=False)
 
 class Operacion(db.Model):
     __tablename__ = 'operacion'
+    __table_args__ = {'schema': 'efsw'}
     id = db.Column(db.Integer, primary_key=True)
-    cuenta_origen = db.Column(db.String(9), db.ForeignKey('cuentausuario.numero'), nullable=False)
-    cuenta_destino = db.Column(db.String(9), db.ForeignKey('cuentausuario.numero'), nullable=False)
+    cuenta_origen = db.Column(db.String(9), db.ForeignKey('efsw.cuentausuario.numero'), nullable=False)
+    cuenta_destino = db.Column(db.String(9), db.ForeignKey('efsw.cuentausuario.numero'), nullable=False)
     valor = db.Column(db.Integer, nullable=False)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -42,22 +45,6 @@ def listar_contactos():
         if contacto_usuario:
             contactos_info.append(f"{contacto.numero_contacto}: {contacto_usuario.nombre}")
     return jsonify(contactos_info), 200
-
-@app.route('/billetera/pagar', methods=['GET'])
-def pagar():
-    minumero = request.args.get('minumero')
-    numero_destino = request.args.get('numerodestino')
-    valor = request.args.get('valor')
-    cuentausuario = Cuentausuario.query.filter_by(numero = minumero).first()
-    if not cuentausuario:
-        return jsonify({'error': 'Este numero no existe'})
-    contacto = Contacto.query.filter_by(numero_usuario=minumero, numero_contacto=numero_destino).first()
-    if not contacto:
-        return jsonify({'error': 'Numero destino no existe'})
-    operacion = Operacion(cuenta_origen=minumero, cuenta_destino=numero_destino, valor=valor)
-    db.session.add(operacion)
-    db.session.commit()
-    return jsonify({'operacion': 'Operacion realizada con exito', 'fecha': operacion.fecha}), 200
 
 if __name__ == '__main__':
     with app.app_context():

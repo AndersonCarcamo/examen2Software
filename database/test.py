@@ -5,13 +5,16 @@ from datetime import datetime
 class TestModels(unittest.TestCase):
 
     def setUp(self):
+        # Configurar la aplicación Flask para pruebas
         self.app = app
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Anvarnv23@localhost/billetera_yape_test'
+        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Anvarnv23@localhost/billetera_yape'
         self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         self.app.config['TESTING'] = True
 
         with self.app.app_context():
+            db.drop_all()
             db.create_all()
+            # Añadir datos iniciales
             self.cuenta1 = Cuentausuario(numero='21345', nombre='Arnoldo', saldo=200)
             self.cuenta2 = Cuentausuario(numero='123', nombre='Luisa', saldo=500)
             self.cuenta3 = Cuentausuario(numero='456', nombre='Andrea', saldo=50)
